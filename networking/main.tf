@@ -127,3 +127,73 @@ resource "aws_route_table_association" "public_b" {
   subnet_id      = aws_subnet.public_b.id
   route_table_id = aws_route_table.public.id
 }
+
+resource "aws_security_group" "alb" {
+  name        = "learning-alb-sg"
+  description = "Allow HTTP from the internet to the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "To app tier only"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  tags = {
+    Name = "learning-alb-sg"
+  }
+}
+
+resource "aws_security_group" "app" {
+  name        = "learning-app-sg"
+  description = "Allow traffic from ALB only, on app port"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "From ALB only"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  egress {
+    description = "Outbound for image pulls, API calls, etc."
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "learning-app-sg"
+  }
+}
+
+resource "aws_security_group" "db" {
+  name        = "learning-db-sg"
+  description = "Allow Postgres from app tier only"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description     = "Postgres from app only"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  tags = {
+    Name = "learning-db-sg"
+  }
+}
